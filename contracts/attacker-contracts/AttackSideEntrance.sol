@@ -32,7 +32,7 @@ contract AttackSideEntrance {
     }
 
     function execute() external payable {
-      require(address(this).balance == poolBalance, "No enought ETH");
+      require(address(this).balance == poolBalance, "No enough ETH");
 
       // do something with the loan
       // ...

